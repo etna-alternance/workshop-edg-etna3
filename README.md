@@ -1,13 +1,13 @@
-# [header] SDC-COMU / Atelier EDG / Programmer une bande LED connectée avec un ESP32
+# SDC-COMU / Atelier EDG / Programmer une bande LED connectée avec un ESP32
 
-# [goals] Objectifs
+# Objectifs
 
 - Câbler et programmer un ESP32 pour contrôler une bande LED adressable (WS2812B) et des boutons physiques.
 - Développer un moteur de jeu "bare-metal" en C++ : gérer le temps réel (non-bloquant avec `millis()`), les collisions et les états.
 - Connecter le jeu au réseau WiFi local pour écouter des événements externes via MQTT (Cloud to Edge).
 - Découvrir les contraintes de l'embarqué (limites de courant, rebonds matériels) et les métiers du Edge Computing.
 
-# [context] Contexte
+# Contexte
 
 Créer un jeu vidéo sur un PC avec Unity ou Unreal Engine est une chose. Le créer sur un microcontrôleur à 3€ avec 520 Ko de RAM en est une autre. Ici, pas de système d'exploitation pour gérer le matériel à ta place, pas de multithreading magique, et chaque appel bloquant fige l'intégralité du système.
 
@@ -15,7 +15,7 @@ Aujourd'hui, tu vas construire un jeu d'arcade unidimensionnel. Une "base" à d�
 
 Ce projet miniaturise les problématiques de l'ingénierie embarquée et de la robotique : acquérir des signaux matériels (boutons), traiter la logique en temps réel sans jamais bloquer le processeur, restituer un état visuel complexe (LED adressables), et communiquer avec le cloud.
 
-# [project] Consignes
+# Consignes
 
 ## Kit matériel fourni (1 kit par binôme)
 
@@ -34,7 +34,7 @@ Ce projet miniaturise les problématiques de l'ingénierie embarquée et de la r
 Contrairement à une simple LED RGB, la bande WS2812B n'utilise qu'une seule broche de données (DIN). Chaque LED possède sa propre puce et transmet l'information à la suivante.
 
 * **Bande LED :** 5V sur `VIN` (ou 5V), GND sur `GND`. Branche la résistance en série entre la broche `GPIO 16` et le fil `DIN` de la bande.
-* **Boutons :** Câble une patte de chaque bouton sur le `GND`. L'autre patte en diagonale sur les broches : `14` (Vert), `27` (Rouge), `26` (Bleu) et `25` (Level Up). Pas besoin de résistances matérielles, nous utiliserons `INPUT_PULLUP`.
+* **Boutons :** Câble une patte de chaque bouton sur le `GND`. L'autre patte en diagonale sur les broches : `25` (Vert), `26` (Bleu), `27` (Rouge) et `23` (Level Up). Pas besoin de résistances matérielles, nous utiliserons `INPUT_PULLUP`.
 
 **2. Initialiser FastLED :**
 Installe la bibliothèque `FastLED` via le gestionnaire de librairie Arduino.
@@ -62,7 +62,10 @@ void setup() {
   FastLED.show();
 }
 
-void loop() {}
+void loop()
+{
+    // Allumer la première led !
+}
 ```
 *Livrable intermédiaire : Ta base (pixel 0) est allumée.*
 
@@ -115,7 +118,7 @@ Développe les mécaniques du jeu :
 L'ESP32 possède le WiFi. Nous allons le connecter pour que le formateur (ou un autre groupe) puisse saboter ta partie ou t'aider depuis un Dashboard Node-RED.
 
 Intègre les bibliothèques `WiFi.h` et `PubSubClient`.
-Abonne-toi au topic `etna/arcade/groupeX/events`.
+Abonne-toi au topic `etna/arcade/groupeX/events`. (Met quelques choses de différents)
 
 Dans ton callback MQTT, réagis aux commandes externes :
 ```cpp
@@ -129,6 +132,9 @@ void onMessage(char* topic, byte* payload, unsigned int length) {
   if (msg == "LEVEL_UP") {
     levelUp(); // Déclenche l'animation de passage de niveau
   }
+  if (msg == "SHOOT_RED"){
+
+  }
 }
 ```
 
@@ -137,6 +143,8 @@ void onMessage(char* topic, byte* payload, unsigned int length) {
 ## Avant l'atelier
 
 Ajouter le lien de téléchargment dans Preferences -> Additional boards manager URLs -> http://arduino.esp8266.com/stable/package_esp8266com_index.json,https://dl.espressif.com/dl/package_esp32_index.json
+
+Dans le Board Manager installer "esp32" de Expressif Systems, puis sélectionner le board "DOIT ESP32 DEVKIT V1"
 
 **En présentiel :** Installer Arduino IDE 2.x + support ESP32. Installer les bibliothèques `FastLED` et `PubSubClient` via le gestionnaire.
 **À distance :** Créer un compte sur Wokwi (simulateur avancé gérant l'ESP32, FastLED et le WiFi). Tinkercad ne supportant pas le WiFi de l'ESP32, Wokwi est obligatoire.
@@ -147,12 +155,12 @@ Ajouter le lien de téléchargment dans Preferences -> Additional boards manager
 - Gère la limite de puissance de FastLED dès la phase 1. Un crash "Hard Resetting" à chaque `levelUp()` signifie que tu tires trop de courant sur l'USB.
 - Gère bien l'anti-rebond matériel des boutons, sinon tu vas générer du "Bullet Stacking" (tirer 3 balles empilées sur le même pixel en une seule pression).
 
-# [deliverables] Livrables
+# Livrables
 
 **`game.ino`** — Le code C++ complet (incluant FastLED, le moteur asynchrone, et la connexion MQTT).
 **Capture vidéo** — Une courte démo de ton binôme en train de défendre sa base, avec l'intervenant qui déclenche un "Level Up" via MQTT.
 
-# [tips] Conseils
+# Conseils
 
 - Sépare ton affichage de ta logique. Toutes tes fonctions modifient l'état des tableaux en mémoire. La bande LED n'est mise à jour qu'une seule fois à la fin de ta boucle `loop()` avec `FastLED.show()`.
 - Utilise la documentation de FastLED pour les couleurs (`CRGB::Red`, `CRGB::Blue`, etc.).
