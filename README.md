@@ -120,6 +120,19 @@ L'ESP32 possède le WiFi. Nous allons le connecter pour que le formateur (ou un 
 Intègre les bibliothèques `WiFi.h` et `PubSubClient`.
 Abonne-toi au topic `etna/arcade/groupeX/events`. (Met quelques choses de différents)
 
+```cpp
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+const char *ssid = "ETNA25 - Students";
+const char *password = "etnawifi";
+const char *mqtt_server = "10.1.164.174";
+const char *mqtt_topic = "etna/edg/group1/events"; // Mettez autres choses pour éviter des problèmes de conflits entre les topics
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+```
+
 Dans ton callback MQTT, réagis aux commandes externes :
 ```cpp
 void onMessage(char* topic, byte* payload, unsigned int length) {
