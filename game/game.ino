@@ -11,10 +11,11 @@ CRGB leds[NUM_LEDS];
 CRGB colors[3] = {CRGB::Red, CRGB::Blue, CRGB::Green};
 
 int currentLevel = 1;
+int successfulHits = 0;
+
 unsigned long lastShotMoveTime = 0;
 unsigned long lastEnemyMoveTime = 0;
 
-// Variables pour la gestion du debounce des boutons (éviter les lectures multiples lors d'une seule pression)
 bool lastRedState = HIGH;
 bool lastBlueState = HIGH;
 bool lastGreenState = HIGH;
@@ -34,7 +35,6 @@ struct ShotPixel {
   bool active;
 };
 
-// Limite le nombre d'ennemis et de tirs actifs pour éviter les problèmes de performance
 const int MAX_OBJECTS = 40;
 ShotPixel shots[MAX_OBJECTS];
 FallingPixel enemies[MAX_OBJECTS];
@@ -42,7 +42,6 @@ FallingPixel enemies[MAX_OBJECTS];
 int nextSpawnDistance = 0;
 int spawnDistanceCounter = 0;
 
-// Initialisation du jeu
 void setup() {
   Serial.begin(9600);
 
@@ -59,10 +58,7 @@ void setup() {
   resetGame();
 }
 
-// Boucle principale du jeu
 void loop() {
-  // On va éviter de griller le microcontrôleur ou le LED strip
-  // C'est pourquoi je vous donne une base de code pour gérer les timings et les boutons, mais vous êtes libres de faire autrement si vous préférez
   handleButtons();
 
   int enemySpeedDelay = 1000 / (currentLevel + 1);
@@ -88,40 +84,176 @@ void loop() {
   if (needsDraw) {
     drawGame();
   }
+
+  if (successfulHits >= 50 && currentLevel < 5) {
+    levelUp();
+    successfulHits = 0;
+  }
 }
 
 void handleButtons() {
-    // Handle button presses with debounce logic
+  bool readingRed = digitalRead(RED_BTN);
+  bool readingGreen = digitalRead(GREEN_BTN);
+  bool readingBlue = digitalRead(BLUE_BTN);
+  bool readingLevelUp = digitalRead(LEVEL_UP_BTN);
+
+  if (millis() - lastDebounceTime > debounceDelay) {
+    if (readingRed == LOW && lastRedState == HIGH) {
+      shoot(CRGB::Red);
+      lastDebounceTime = millis();
+    }
+    if (readingGreen == LOW && lastGreenState == HIGH) {
+      shoot(CRGB::Green);
+      lastDebounceTime = millis();
+    }
+    if (readingBlue == LOW && lastBlueState == HIGH) {
+      shoot(CRGB::Blue);
+      lastDebounceTime = millis();
+    }
+    if (readingLevelUp == LOW && lastLevelUpState == HIGH) {
+      if (currentLevel < 5) levelUp();
+      lastDebounceTime = millis();
+    }
+  }
+
+  lastRedState = readingRed;
+  lastGreenState = readingGreen;
+  lastBlueState = readingBlue;
+  lastLevelUpState = readingLevelUp;
 }
 
 void shoot(CRGB color) {
-    // Shoot logic (activate a shot with the given color at position 1)
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    if (shots[i].active && shots[i].pos == 1) return;
+  }
+
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    if (!shots[i].active) {
+      shots[i].pos = 1;
+      shots[i].color = color;
+      shots[i].active = true;
+      break;
+    }
+  }
 }
 
 void spawnEnemies() {
-    // Spawn enemies logic (take care of spawn distance and level)
+  ++spawnDistanceCounter;
+  if (spawnDistanceCounter >= nextSpawnDistance) {
+    for (int i = 0; i < MAX_OBJECTS; ++i) {
+      if (!enemies[i].active) {
+        enemies[i].pos = NUM_LEDS - 1;
+        enemies[i].color = colors[random(0, 3)];
+        enemies[i].active = true;
+        spawnDistanceCounter = 0;
+        nextSpawnDistance = random(1, 6);
+        break;
+      }
+    }
+  }
 }
 
 void moveEnemies() {
-    // Move enemies logic
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    if (enemies[i].active) {
+      enemies[i].pos--;
+
+      if (enemies[i].pos <= 0) {
+        drawGame();
+        delay(300);
+        resetGame();
+        return;
+      }
+    }
+  }
 }
 
 void moveShots() {
-    // Move shots logic
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    if (shots[i].active) {
+      shots[i].pos++;
+      if (shots[i].pos >= NUM_LEDS) {
+        shots[i].active = false;
+      }
+    }
+  }
 }
 
 void checkCollisions() {
-    // Check for collisions between shots and enemies
+  for (int e = 0; e < MAX_OBJECTS; ++e) {
+    if (!enemies[e].active) continue;
+
+    for (int s = 0; s < MAX_OBJECTS; ++s) {
+      if (!shots[s].active) continue;
+
+      if (enemies[e].pos == shots[s].pos || enemies[e].pos == shots[s].pos - 1) {
+
+        if (enemies[e].color == shots[s].color) {
+          enemies[e].active = false;
+          shots[s].active = false;
+          ++successfulHits;
+        } else {
+          CRGB oldColor = enemies[e].color;
+          CRGB newColor;
+          do {
+            newColor = colors[random(0, 3)];
+          } while (newColor == oldColor);
+
+          enemies[e].color = newColor;
+          shots[s].active = false;
+        }
+        break;
+      }
+    }
+  }
+}
+
+void flashWhite() {
+  FastLED.clear();
+  fill_solid(leds, NUM_LEDS, CRGB(40, 40, 40));
+  FastLED.show();
+  delay(100);
+  FastLED.clear();
+  FastLED.show();
 }
 
 void levelUp() {
-    // Level up logic if wanted
+  ++currentLevel;
+  flashWhite();
 }
 
 void resetGame() {
-    // Reset game state
+  currentLevel = 1;
+  successfulHits = 0;
+  spawnDistanceCounter = 0;
+  nextSpawnDistance = random(1, 6);
+
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    enemies[i].active = false;
+    shots[i].active = false;
+  }
+
+  FastLED.clear();
+  fill_solid(leds, NUM_LEDS, CRGB::Red);
+  FastLED.show();
+  delay(500);
+  FastLED.clear();
+  FastLED.show();
 }
 
 void drawGame() {
-    // Draw game
+  FastLED.clear();
+
+  leds[0] = CRGB(20, 20, 20);
+
+  for (int i = 0; i < MAX_OBJECTS; ++i) {
+    if (enemies[i].active && enemies[i].pos > 0 && enemies[i].pos < NUM_LEDS) {
+      leds[enemies[i].pos] = enemies[i].color;
+    }
+    if (shots[i].active && shots[i].pos > 0 && shots[i].pos < NUM_LEDS) {
+      leds[shots[i].pos] = shots[i].color;
+    }
+  }
+
+  FastLED.show();
 }
