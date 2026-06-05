@@ -113,6 +113,8 @@ Développe les mécaniques du jeu :
 
 *Livrable intermédiaire : Le jeu est 100% jouable hors-ligne.*
 
+*Demander le code sans bonus au intervenant*
+
 ## Phase 4 — Bonus : Mode Multijoueur Asynchrone via MQTT (25min)
 
 L'ESP32 possède le WiFi. Nous allons le connecter pour que le formateur (ou un autre groupe) puisse saboter ta partie ou t'aider depuis un Dashboard Node-RED.
